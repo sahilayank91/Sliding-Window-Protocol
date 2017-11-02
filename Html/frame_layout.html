@@ -1,0 +1,111 @@
+
+<html>
+
+
+<head>
+
+<script type = "text/javascript">
+
+
+
+	view.onFrame = function(event){
+	
+	
+	
+			if(start===1){	
+				if(event.count%5==0){
+				console.log("In start");
+				console.log("Initial Window Size: "+ initialWindowSize);
+					console.log("animation to be started");
+					packet[temp_sender_min].send = 1;
+					packet[temp_sender_min].animate = 1;
+					packet[temp_sender_min].fillColor='green';
+					packet[temp_sender_min].strokeColor='black';
+					packet[temp_sender_min].flag=0;
+					packet[temp_sender_min].visible = true;
+					
+					temp_sender_min++;
+					console.log(temp_sender_min+ ": updated");
+					
+					if(temp_sender_min > windowSize){
+						
+						start=0;
+					}
+					
+				}
+	
+	
+	
+		for(var i=sender_mim;i<=sender_max;i++){
+			
+			if(packet[i].send===1 && packet[i].packet_timeout>0){
+				packet[i].position.y+=1;
+				packet[i].packet_timeout -=1;
+			}
+			
+			if(packet[i].send===1 && packet[i].position.y>235 && packet[i].flag===0){
+				packet[i].send=0;
+				packet[i].recieve = 1;
+				packet[i].flag=1;
+				recieverBuffer[i].packet_recieved = 1;
+				if(i===sender_min){
+					reciever_min++;
+					recieverWindow.position.x+=35;
+				}
+				reciever_max = reciever_min + windowSize;
+			}
+			
+			if(packet[i].recieve===1 && packet[i].packet_timeout>=0){
+				packet[i].position.y-=1;
+				packet[i].packet_timeout -=1;
+			}
+			
+			if(packet[i].position.y===30 && packet[i].recieve===1 && packet[i].flag===1){
+				packet[i].recieve=0;
+				packet[i].flag=2;
+				
+				if(i===sender_min){
+					senderWindow.position.x+=35;
+					sender_min++;
+				}
+				
+				sender_max = sender_min + windowSize;
+				packet[sender_max].send = 1;
+				packet[sender_max].visible = true;
+			}
+			
+			if(packet[i].killed===true && packet[i].timeout<0){
+				packet[i].killed=false;
+				packet[i].send=1;
+				packet[i].flag=0;
+				packet[i].recieve=0;
+				packet[i].packet_timeout =timeout;
+			}
+			
+			
+			
+		
+		
+		
+		
+		}
+		
+		
+		
+	
+	
+	
+	
+	
+	
+	
+	
+	}
+
+
+
+</script>
+
+</head>
+
+</html>

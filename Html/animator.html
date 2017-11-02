@@ -1,0 +1,389 @@
+<html>
+<head>
+	<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Sliding Window Protocol</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="../bootstrap-3.3.7-dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../bootstrap-3.3.7-dist/css/bootstrap.css">
+    <script src="../bootstrap-3.3.7-dist/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="../dist/paper-full.js"></script>
+	
+	
+	<script type="text/javascript">
+			
+		/*Declaring Buffers*/	
+		var senderBuffer = [];
+		var recieverBuffer =[];
+	    var packet = [];
+		
+		
+		/*Declaring indexes of Window*/
+		var sender_min=1;
+		var sender_max;
+		var reciever_min=1;
+		var reciever_max;
+		var senderWindow;
+		var recieverWindow;
+		var window_width = 50;
+		var temp_sender_min = 1;
+		var temp_sender = 0;
+		var temp_reciever = 0;
+		
+		/*Declaring Inputs from the User*/
+		var timeout;
+        var windowSize;
+		var intervalBetweenPackets=0;
+		var endtoendDelay;
+		var temp=0;
+		
+		/*Setting Coordinates*/
+		var x_min_sender = 10;
+		var y_min_sender = 20;
+		var packet_len = 20;
+		var packet_width = 30;
+		var x_min_packet = x_min_sender;
+	
+		
+		var x_min_reciever = 10;
+		var y_min_reciever = y_min_sender+200;
+		
+		/*Declaring useful Intermediate Variables*/
+		var base = 0;
+		var reciever_base=0;
+		var seqnoToAck;
+		var nextIntermediateSeq;
+		var startAnimation = false;
+		var initialTransition = true;
+		var start = 1;
+		var initialWindowSize = windowSize;
+		
+		
+		/*Setting seqNo constraints*/
+		var seqno;
+		var max_seqno;
+		
+		/*Setting the Global Values*/
+		function getValues(){
+			this.timeout = parseInt(document.getElementById('timeoutRange').value);
+			this.windowSize= parseInt(document.getElementById('windowSizeRange').value);
+			this.intervalBetweenPackets = parseInt(document.getElementById('intervalRange').value);
+			this.endtoendDelay = parseInt(document.getElementById('endtoendRange').value);
+			this.initialWindowSize = windowSize;
+			timeout = timeout/100;
+			timeout = timeout * 60;
+			timeout = timeout/10;
+			seqno=0;
+			max_seqno = 2*windowSize;
+		
+		}
+		
+		/*Installing the Paperjs Component on Canvas*/
+		
+		paper.install(window);
+		window.onload = function(){
+			paper.setup('canvas');
+
+
+			
+		/*Creating Buffers on Screen*/	
+		function createBuffer(){
+			/*Creating Sender Buffers*/
+			for(var i=1;i<150;i++){
+				var sender = new Path.Rectangle([x_min_sender,y_min_sender],[packet_len,packet_width]);
+				sender.fillColor='blue';
+				sender.strokeColor='black';
+				senderBuffer[i] = sender;
+				senderBuffer[i].send = true;
+				senderBuffer[i].ack_recieved = false;
+				x_min_sender+=35;
+			}
+			x_min_sender = 10;
+			
+			/*Creating Reciever Buffer*/
+			for(var i=1;i<150;i++){
+				var reciever = new Path.Rectangle([x_min_reciever,y_min_reciever],[packet_len,packet_width]);
+				reciever.fillColor = 'yellow';
+				reciever.strokeColor = 'black';
+				recieverBuffer[i] = reciever;
+				recieverBuffer[i].recieve = false;
+				
+				x_min_reciever+=35;
+				recieverBuffer[i].packet_recieved = 0;
+			}
+			
+			
+			/*Creating the Packets*/
+			for(var i=1;i<1000;i++){
+				var packets = new Path.Rectangle([x_min_packet,y_min_sender],[packet_len,packet_width]);
+				packets.fillColor='green';
+				packets.strokeColor='black';
+				packet[i] = packets;
+				packet[i].animate = 0;
+				packet[i].killed = 0;
+				packet[i].ack = 0;
+				packet[i].flag = 0;
+				packet[i].send = 0;
+				packet[i].recieve = 0;
+				packet[i].packet_timeout = timeout;
+				packet[i].visible = false;
+				
+				packet[i].attach('mouseenter', function() {
+						this.visible = false;
+						this.killed=1;
+						this.position.y = y_min_sender;
+						this.recieve = 0;
+						this.flag= 0;
+						this.send=0;
+					
+					});
+
+				
+				x_min_packet+=35;
+			
+					
+				
+			}
+			console.log(packet[1]);
+			
+		
+				
+		}
+		
+		x_min_reciever=10;
+		
+		/*Creating the Sender and Reciever Window*/
+		function createWindow(){
+			/*Created Sender Window*/
+			senderWindow = new Path.Rectangle([x_min_sender-10,y_min_sender-10],[windowSize*packet_len + 15*windowSize +5,window_width]);
+			senderWindow.strokeColor='black';
+			senderWindow.strokeWidth=3;
+			/*Created Reciever Window*/
+			recieverWindow = new Path.Rectangle([x_min_sender-10,y_min_sender+190],[windowSize*packet_len + 15*windowSize +5,window_width]);
+			recieverWindow.strokeColor='red';
+			recieverWindow.strokeWidth=3;
+			
+		}
+		
+		/*Starting the Animation*/
+		$('#startAnimation').click(function(){
+			animationController();
+			$('#startAnimation').attr('value','Stop Animation');
+		});
+		
+		
+		function animationController(){
+			startAnimation =1;
+		
+			getValues();					//set All Values
+			createBuffer();					//create the Buffers
+			createWindow();					//create the Windows on Both the Sides4
+		}
+			
+		/*Starting the Frames*/
+		view.onFrame = function(event){
+			
+			if(startAnimation){
+		
+		
+		
+			if(start===1){	
+				if(event.count%5==0){
+				console.log("In start");
+				//console.log("Initial Window Size: "+ initialWindowSize);
+					//console.log("animation to be started");
+					packet[temp_sender_min].send = 1;
+					packet[temp_sender_min].animate = 1;
+					packet[temp_sender_min].fillColor='green';
+					packet[temp_sender_min].senderSide = 1;
+					packet[temp_sender_min].strokeColor='black';
+					packet[temp_sender_min].flag=0;
+					packet[temp_sender_min].visible = true;
+					packet[temp_sender_min].seqNo = (seqno++)%(max_seqno);
+					
+					temp_sender_min++;
+					//console.log(temp_sender_min+ ": updated");
+					
+					if(temp_sender_min > windowSize){
+						
+						start=0;
+					}
+					
+				}
+					
+			
+			}	
+		
+		/*Main Loop for animating the Packets*/ 
+		sender_max = sender_min + windowSize -1;
+		reciever_max = reciever_min + windowSize-1;
+		temp_reciever = 0;
+		temp_sender = 0;
+		
+
+		//console.log("Sender_max: "+ sender_max);
+		/*reciever_max = reciever_min + windowSize;*/
+		
+		for(var i=sender_min;i<=sender_max;i++){
+		//console.log("Timeout for Frame: " + i + ": "+ packet[i].packet_timeout);
+	
+			
+				packet[i].packet_timeout -=1;
+			
+			
+			
+			if(senderBuffer[sender_min].ack_recieved===true){
+				//console.log("Frame " + sender_min + " already Acknowledged");
+				sender_min++;
+				senderWindow.position.x+=35;
+				sender_max = sender_min + windowSize -1;
+				packet[sender_max].send = 1;
+				packet[sender_max].visible = true;
+				continue;
+			}
+			
+			if(recieverBuffer[reciever_min].packet_recieved===1){
+				reciever_min++;
+				recieverWindow.position.x+=35;
+				reciever_max = reciever_min + windowSize-1;
+				continue;
+			
+			}
+			
+			if( packet[i].packet_timeout<=0 && packet[i].killed===1){
+				console.log("Timeout occured for frame with seqNo:" + packet[i].seqNo);
+				packet[i].position.y = y_min_sender;
+				packet[i].fillColor ='green';
+				packet[i].strokeColor='black';
+				packet[i].send=1;
+				packet[i].recieve=0;
+				packet[i].flag=0;
+				packet[i].killed = 0;
+				packet[i].visible = true;
+				packet[i].packet_timeout = timeout;
+			}
+			
+			
+			
+			
+			if(packet[i].send===1 && packet[i].packet_timeout>=0){
+				packet[i].position.y+=1;
+				
+			}
+			
+			if(packet[i].send===1 && packet[i].position.y>235 && packet[i].flag===0){
+				packet[i].send=0;
+				packet[i].recieve = 1;
+				packet[i].flag=1;
+				packet[i].fillColor='red';
+				recieverBuffer[i].packet_recieved = 1;
+				if(i===reciever_min){
+					console.log("Packet Recieved for Frame: "+ i);
+					recieverBuffer[reciever_min].packet_recieved=1;
+					reciever_min++;
+					recieverWindow.position.x+=35;
+					}
+			}
+			
+			if(packet[i].recieve===1 && packet[i].packet_timeout>=0){
+				packet[i].position.y-=1;
+				
+			}
+			
+			if(packet[i].position.y===30 && packet[i].recieve===1 && packet[i].flag===1){
+				packet[i].recieve=0;
+				packet[i].flag=2;
+				packet[i].send=0;
+				packet[i].fillColor = 'black';
+				console.log("Ack Recieved with SeqNo: " + packet[i].seqNo);
+				senderBuffer[i].ack_recieved=true;
+				if(i===sender_min){
+					console.log("Ack Recieved for frame: " + i);
+					console.log("Window forwarded with the min Frame No: " + sender_min);	
+					senderWindow.position.x+=35;
+					senderBuffer[i].ack_recieved=true;
+					sender_min++;
+					sender_max = sender_min + windowSize -1;
+					packet[sender_max].send = 1;
+					packet[sender_max].visible = true;
+					packet[sender_max].seqNo = (seqno++)%(max_seqno);
+					if(seqno===max_seqno+1){
+						seqno=0;
+					}
+					
+				}		
+			}
+			//console.log("Value of Sender_min: "+ sender_min);
+			if(packet[i].packet_timeout<=0 && packet[i].killed===1){
+				packet[i].visible = true;
+				packet[i].killed=0;
+				packet[i].packet_timeout = timeout;
+				packet[i].send=1;
+				packet[i].flag=0;
+				
+			}	
+		}
+			 
+	}
+
+	}
+	}
+		
+			
+			
+	
+	</script>
+	
+	
+	
+</head>
+<body>
+<div class="container">
+    <!-- Content here -->
+    <div class="jumbotron">
+
+    <p>
+    <div style="text-align: center;"><b>Sliding Window Protocol</b></div>
+    </p>
+    </div>
+
+
+    <div class="row">
+    <div class="jumbotron">
+
+        <div class="col-md-3">
+		<form action="" method="POST">
+            <label for="windowSize">Window Size</label>	 
+            <input type="range" id = "windowSizeRange" onchange="$('#textwindowSize').attr('value', this.value);"  value = "5" name="windowsize" min="0" max="10">
+			<input type="text" style="margin-top:20px;" value="5"  id="textwindowSize" disabled="disabled" />
+			</form>	
+        </div>
+        <div class="col-md-3">
+            <label for="endtoend">End to End Delay</label>	
+            <input type="range" id="endtoendRange" name="endtoendRange" onchange="$('#textend').attr('value', this.value);" min="1000" max="30000">
+			<input type="text" style="margin-top:20px;" value="2000" min="1000" max="30000" step="500" id="textend" disabled="disabled" />
+        </div>
+        <div class="col-md-3">
+            <label for="interval">Interval Between Packets</label>
+            <input type="range" onchange="$('#textinterval').attr('value', this.value);"  id="intervalRange" name="Interval" min="100" max="1000">
+			<input type="text" style="margin-top:20px;" value="500" min="100" max="1000" step="500" id="textinterval" disabled="disabled" />
+        </div>
+		 <div class="col-md-3">
+            <label for="timeout">Timeout</label>
+            <input type="range" onchange="$('#textTimeout').attr('value', this.value);" id="timeoutRange" name="Interval" min="1000" max="10000">
+			<input type="text" style="margin-top:20px;" value="10000" min="1000" max="10000" step="500" id="textTimeout" disabled="disabled" />
+        </div>
+        <div style="text-align: center; padding-top:12%"><input type="submit" id="startAnimation" name="start" value="Start Animation"></div>
+
+
+
+    </div>
+	<div class="container-canvas container-fluid" style="overflow-x:scroll; height:300px; border: 2px solid darkblue; width:3000px">
+        <canvas id="canvas" width="3000px" height="1000px" style="width:100%;overflow-x:scroll">
+	</div>
+	
+	
+
+	</body>
+
+</html>
